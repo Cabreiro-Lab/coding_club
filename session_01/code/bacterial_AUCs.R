@@ -311,5 +311,6 @@ test_boxplot %>%
 
 #### save the plot!!! -------
 ggsave('plots/boxplot_NT12060.pdf', height = 5, width = 6)
+ggsave('plots/boxplot_NT12060.png', height = 5, width = 6)
 
 

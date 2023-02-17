@@ -32,4 +32,5 @@ During the course of the first session, we will learn:
 -   A very brief introduction on how to modify the plot (e.g., labels, colours, font size...)
 
 In the end you should be able to generate a plot similar to this:
-[Link to PDF plot](path/to/my_plot.pdf)
+[Boxplot example](https://github.com/Cabreiro-Lab/coding_club/blob/main/session_01/plots/boxplot_NT12060.pdf)
+![My plot](plots/boxplot_NT12060.png)
