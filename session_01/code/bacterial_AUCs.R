@@ -160,10 +160,10 @@ auc %>%
 
 # Create a subset of the 'auc' data frame where Strain is in the first three 
 #elements of 'strains'
-subset_auc <- auc[auc$Strain %in% strains[1:3], ]
+subset_auc = auc[auc$Strain %in% strains[1:3], ]
 
 # Order the subset by Metformin_mM and Replicate
-ordered_subset_auc <- subset_auc[order(subset_auc$Metformin_mM, 
+ordered_subset_auc = subset_auc[order(subset_auc$Metformin_mM, 
                                        subset_auc$Replicate), ]
 
 
@@ -312,5 +312,46 @@ test_boxplot %>%
 #### save the plot!!! -------
 ggsave('plots/boxplot_NT12060.pdf', height = 5, width = 6)
 ggsave('plots/boxplot_NT12060.png', height = 5, width = 6)
+
+
+
+
+
+
+# growth ------------------------------------------------------------------
+time_data = read_csv(here('data', 'Output_595', 'Timeseries.csv')) %>%
+  filter(Data == '595nm_f') %>%
+  gather(Time_s, OD, matches('\\d')) %>%
+  drop_na(Time_s) %>% 
+  drop_na(Strain) %>% 
+  mutate(
+         Time_s = as.numeric(Time_s),
+         Time_h = Time_s/3600,
+         Row = str_match_all(Well,'[:digit:]{1,}'), #Get plate row names from well name. 
+         Col = str_match_all(Well,'[:alpha:]{1,}'), #Get plate column names from well name
+         Row = factor(Row, levels = 1:12), #Make them categorical variable with set order them
+         Col = factor(Col, levels = LETTERS[1:8])) %>%
+  select(c(-File, -Data, -Reader)) %>%
+  # rename(Strain = Str, Replicate = Replicate_y) %>%
+  mutate_at(c('Well', 'Strain', 'Metformin_mM'), as.factor)
+
+
+
+read_csv(here('data', 'Output_595', 'Timeseries.csv')) %>%
+  filter(Data == '595nm_f') %>%
+  pivot_longer(where(is.numeric),
+               names_to = 'Time_s', values_to = 'OD') %>%
+  drop_na(Time_s, OD, Strain) %>%
+  mutate(
+    Time_s = as.numeric(Time_s),
+    Time_h = Time_s/3600,
+    Row = str_match_all(Well,'[:digit:]{1,}'), #Get plate row names from well name.
+    Col = str_match_all(Well,'[:alpha:]{1,}'), #Get plate column names from well name
+    Row = factor(Row, levels = 1:12), #Make them categorical variable with set order them
+    Col = factor(Col, levels = LETTERS[1:8])) %>%
+  select(c(-File, -Data, -Reader)) %>%
+  # rename(Strain = Str, Replicate = Replicate_y) %>%
+  mutate_at(c('Well', 'Strain', 'Metformin_mM'), as.factor)
+
 
 
