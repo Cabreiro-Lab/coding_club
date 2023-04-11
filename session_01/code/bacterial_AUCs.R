@@ -319,39 +319,162 @@ ggsave('plots/boxplot_NT12060.png', height = 5, width = 6)
 
 
 # growth ------------------------------------------------------------------
+
 time_data = read_csv(here('data', 'Output_595', 'Timeseries.csv')) %>%
   filter(Data == '595nm_f') %>%
-  gather(Time_s, OD, matches('\\d')) %>%
-  drop_na(Time_s) %>% 
-  drop_na(Strain) %>% 
-  mutate(
-         Time_s = as.numeric(Time_s),
-         Time_h = Time_s/3600,
-         Row = str_match_all(Well,'[:digit:]{1,}'), #Get plate row names from well name. 
-         Col = str_match_all(Well,'[:alpha:]{1,}'), #Get plate column names from well name
-         Row = factor(Row, levels = 1:12), #Make them categorical variable with set order them
-         Col = factor(Col, levels = LETTERS[1:8])) %>%
-  select(c(-File, -Data, -Reader)) %>%
-  # rename(Strain = Str, Replicate = Replicate_y) %>%
-  mutate_at(c('Well', 'Strain', 'Metformin_mM'), as.factor)
-
-
-
-read_csv(here('data', 'Output_595', 'Timeseries.csv')) %>%
-  filter(Data == '595nm_f') %>%
-  pivot_longer(where(is.numeric),
-               names_to = 'Time_s', values_to = 'OD') %>%
-  drop_na(Time_s, OD, Strain) %>%
+  drop_na(Strain)  %>% # 6,888 × 96
+  pivot_longer(cols = matches('\\d'), names_to = 'Time_s', values_to = 'OD') %>% 
+  # 599,256 × 11
+  drop_na(OD) %>% 
   mutate(
     Time_s = as.numeric(Time_s),
-    Time_h = Time_s/3600,
-    Row = str_match_all(Well,'[:digit:]{1,}'), #Get plate row names from well name.
-    Col = str_match_all(Well,'[:alpha:]{1,}'), #Get plate column names from well name
-    Row = factor(Row, levels = 1:12), #Make them categorical variable with set order them
-    Col = factor(Col, levels = LETTERS[1:8])) %>%
+    Time_h = Time_s/3600) %>%
   select(c(-File, -Data, -Reader)) %>%
   # rename(Strain = Str, Replicate = Replicate_y) %>%
   mutate_at(c('Well', 'Strain', 'Metformin_mM'), as.factor)
 
 
+time.sum = time_data %>% 
+  group_by(Strain, PG, Metformin_mM, Well, Time_h) %>% 
+  summarise(Mean = mean(OD),
+            SD = sd(OD))
+
+
+time.sum %>% 
+  filter(Strain == 'NT12001') %>% 
+  ggplot(aes(x = Time_h, y = Mean, color = Metformin_mM)) +
+  geom_line()
+
+
+
+time.sum %>% 
+  ungroup %>% 
+  filter(Strain == 'NT12001') %>% 
+  ggplot(aes(x = Time_h, y = Mean, 
+             color = Metformin_mM, fill = Metformin_mM)) +
+  geom_ribbon(aes(ymin = Mean - SD, ymax = Mean + SD), 
+              color = NA, alpha = 0.4) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 24, by = 6)) +
+  scale_color_viridis_d() +
+  scale_fill_viridis_d() +
+  labs(x = 'Time (in h)',
+       y = 'OD')
+
+auc %>% 
+  filter(Strain == 'NT12001') %>% 
+  ggplot(aes(x = Metformin_mM, y = AUC, fill = Metformin_mM)) +
+  geom_boxplot() +
+  geom_point(color = 'black', 
+             size = 2)
+
+
+plot_single_growth = function(data = time.sum, strain = 'NT12001'){
+  data %>% 
+    ungroup %>% 
+    filter(Strain == strain) %>% 
+    ggplot(aes(x = Time_h, y = Mean, 
+               color = Metformin_mM, fill = Metformin_mM)) +
+    geom_ribbon(aes(ymin = Mean - SD, ymax = Mean + SD), 
+                color = NA, alpha = 0.4) +
+    geom_line() +
+    scale_x_continuous(breaks = seq(0, 24, by = 6)) +
+    scale_color_viridis_d() +
+    scale_fill_viridis_d() +
+    labs(x = 'Time (in h)',
+         y = 'OD',
+         title = strain)
+}
+
+
+plot_single_growth(strain = 'NT12003')
+
+
+
+
+time.sum %>% 
+  ungroup %>% 
+  filter(PG == 1) %>% 
+  ggplot(aes(x = Time_h, y = Mean, 
+             color = Metformin_mM, fill = Metformin_mM)) +
+  geom_ribbon(aes(ymin = Mean - SD, ymax = Mean + SD), 
+              color = NA, alpha = 0.4) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 24, by = 6)) +
+  scale_color_viridis_d() +
+  scale_fill_viridis_d() +
+  labs(x = 'Time (in h)',
+       y = 'OD') +
+  facet_wrap(~Strain, ncol = 12, nrow = 8)
+
+# STATS -------------------------------------------------------------------
+
+
+## simple stats ---------
+
+plot_single_growth(strain = 'NT12061')
+
+stats_test_single = auc %>% 
+  filter(Strain == 'NT12061') %>% 
+  filter(Metformin_mM %in% c(0, 50))
+
+model = lm(AUC ~ Metformin_mM, data = stats_test_single)
+
+summary(model)
+
+## multi stats vs reference ----------
+
+
+stats_test =
+  auc %>% 
+  filter(Strain == 'NT12061')
+
+
+model = lm(AUC ~ Metformin_mM, data = stats_test)
+summary(model)
+
+# changing the reference level
+stats_test$Metformin_mM  = relevel(factor(stats_test$Metformin_mM), ref = '50')
+lm(AUC ~ Metformin_mM, data = stats_test) %>% summary()
+
+
+## pairwise stats (ANOVA) ----------
+
+stats_test =  auc %>% 
+  filter(Strain == 'NT12061')
+
+model = aov(AUC ~ Metformin_mM, data = stats_test)
+summary(model)
+
+
+TukeyHSD(model)
+
+
+library(broom)
+
+tidy(TukeyHSD(model)) %>% 
+  mutate(p.adj.stars = gtools::stars.pval(adj.p.value))
+
+
+## pairwise stats (rstatix) ----------
+
+library(rstatix)
+
+auc %>% 
+  filter(Strain == 'NT12001') %>% 
+  group_by(Strain) %>% 
+  t_test(AUC ~ Metformin_mM, 
+         detailed = TRUE) %>%
+  adjust_pvalue(method = 'fdr') %>% 
+  select(Strain, estimate, group1, group2, p.adj, p, p.adj.signif, everything())
+
+strains_stats = auc %>% 
+  group_by(Strain) %>% 
+  t_test(AUC ~ Metformin_mM, 
+         detailed = TRUE) %>%
+  adjust_pvalue(method = 'fdr') %>% 
+  add_significance("p.adj") %>% 
+  select(Strain, estimate, group1, group2, p.adj, p, p.adj.signif, everything())
+
+plot_single_growth(strain = 'NT12001')
 
