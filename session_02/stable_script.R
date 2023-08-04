@@ -110,9 +110,137 @@ box_prot(c('lon', 'sucA'))
 
 # volcano plots -----------------------------------------
 
+# volcano plots
+
+# a simple volcano plot
 stats %>% 
-  filter(group1 == 'clpX', group2 == 'Control')
-  
+  filter(group1 == 'clpX' & group2 == 'Control') %>% 
+  mutate(logpval = -log10(p.adj)) %>% 
+  ggplot(aes(x = estimate, y = logpval)) +
+  geom_point() +
+  labs(x = 'log2 Fold Change',
+       y = '-log10(p-value)')
 
 
+# modify within the plot
+library(ggrepel)
+log2F_thres = 0.5
+logpval_thres = -log10(0.05)
+stats %>% 
+  filter(group1 == 'clpX' & group2 == 'Control') %>% 
+  mutate(logpval = -log10(p.adj)) %>% 
+  ggplot(aes(x = estimate, y = logpval)) +
+  geom_point(aes(color = ifelse(abs(estimate) > log2F_thres & 
+                                  logpval > logpval_thres, 'red', 'grey'))) +
+  labs(x = 'log2 Fold Change',
+       y = '-log10(p-value)') +
+  scale_color_manual(values = c('grey', 'red'),
+                     name = 'Significant \n proteins') +
+  geom_text_repel(aes(label = ifelse(abs(estimate) > log2F_thres & 
+                                       logpval > logpval_thres, gene, NA))) +
+  labs(
+    x = 'log2(FC)',
+    y = '-log10(FDR)',
+    title = 'clpX vs Control'
+  )
+
+
+
+# modify the data frame
+
+log2F_thres = 0.5
+logpval_thres = -log10(0.05)
+
+stats %>% 
+  filter(group1 == 'clpX' & group2 == 'Control') %>% 
+  mutate(logpval = -log10(p.adj)) %>% 
+  mutate(col_point = ifelse(logpval > logpval_thres & abs(estimate) > log2F_thres, 
+                            'black', 'grey70')) %>%
+  mutate(gene_labs = ifelse(logpval > logpval_thres & abs(estimate) > log2F_thres, 
+                            gene, '')) %>% 
+  ggplot(aes(x = estimate, y = logpval)) +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed',
+             color = 'grey50', alpha = 0.8) +
+  geom_point(aes(color = col_point), show.legend = F) +
+  scale_color_manual(values = c('black', 'grey70'),
+                     breaks = c('black', 'grey70')) + 
+  geom_text_repel(aes(label = gene_labs)) +
+  labs(
+    x = 'log2(FC)',
+    y = '-log10(FDR)',
+    title = 'clpX vs Control'
+  ) +
+  theme(
+    plot.title = element_text(hjust=0.5)
+  )
+
+
+
+
+
+# heatmap -----------------------------------------------------------------
+
+library(ComplexHeatmap)
+
+prot %>% separate_rows(kegg, sep = ';') %>% distinct(kegg) %>% view
+
+tca_sum = prot %>% 
+  filter(str_detect(kegg,'Citrate cycle')) %>% 
+  group_by(gene, sample) %>% 
+  summarise(mean_int = mean(intensity, na.rm = T))
+
+tca_matrix = tca_sum %>% 
+  pivot_wider(names_from = sample, values_from = mean_int) %>% 
+  arrange(gene) %>% 
+  column_to_rownames('gene') %>% as.matrix()
+
+
+
+Heatmap(tca_matrix)
+
+
+## calculate z-scores
+
+Heatmap(t(scale(t(tca_matrix))))
+
+tca_matrix = prot %>% 
+  filter(str_detect(kegg,'Citrate cycle')) %>% 
+  group_by(gene, sample) %>% 
+  summarise(mean_int = mean(intensity, na.rm = T)) %>% 
+  group_by(gene) %>% 
+  mutate(scale_int = scale(mean_int)[,1]) %>% 
+  select(-mean_int) %>% 
+  pivot_wider(names_from = sample, values_from = scale_int) %>% 
+  arrange(gene) %>% 
+  column_to_rownames('gene') %>% as.matrix()
+
+Heatmap(tca_matrix,
+        name = 'Z-score',
+        column_title = 'Samples',
+        row_title = 'Proteins') 
+
+
+
+Heatmap(tca_matrix,
+        name = 'Z-score',
+        column_title = 'Samples',
+        row_title = 'Proteins',
+        row_km = 3, 
+        column_km = 2) 
+
+
+
+## example with two categories
+
+
+two_cat = prot %>% 
+  filter(str_detect(kegg,'Citrate cycle|Purine metabolism')) %>% 
+  separate_rows(kegg, sep = ';') %>% 
+  distinct(gene, sample, replicate, protein_id, .keep_all = T) %>% 
+  filter(str_detect(kegg,'Citrate cycle|Purine metabolism')) %>% 
+  group_by(gene, sample, kegg) %>% 
+  summarise(mean_int = mean(intensity, na.rm = T)) %>% 
+  ungroup
+
+n_tca = two_cat %>% distinct(gene, .keep_all = T) %>% count(kegg)
 

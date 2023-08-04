@@ -5,6 +5,7 @@ library(glue)
 library(rstatix)
 library(cowplot)
 library(ComplexHeatmap)
+library(ggrepel)
 
 # set up cowplot theme for the project
 
@@ -131,16 +132,17 @@ boxprot = function(genes) {
 
 
 
-boxprot('gltA')
+boxprot('cheA')
 
 boxprot(c('gltA', 'clpX'))
 
 
 
+# volcano plots -----------------------------------------
 
 # volcano plots
 
-
+# a simple volcano plot
 stats %>% 
   filter(group1 == 'clpX' & group2 == 'Control') %>% 
   mutate(logpval = -log10(p.adj)) %>% 
@@ -150,13 +152,123 @@ stats %>%
        y = '-log10(p-value)')
 
 
+logpval_thres = -log10(0.01)
+log2F_thres = 1
+
+stats %>% 
+  filter(group1 == 'clpX' & group2 == 'Control') %>% 
+  mutate(logpval = -log10(p.adj)) %>% 
+  ggplot(aes(x = estimate, y = logpval)) +
+  geom_hline(yintercept = logpval_thres, linetype = 'dashed', color = 'grey80') + 
+  geom_vline(xintercept = log2F_thres, linetype = 'dashed', color = 'grey80') +
+  geom_vline(xintercept = -log2F_thres, linetype = 'dashed', color = 'grey80') +
+  geom_point(aes(colour = ifelse(logpval > logpval_thres &
+                                   abs(estimate) > log2F_thres, 
+                                 'blue', 'grey'))) +
+  scale_colour_manual(name = 'Significant\nProteins',
+                      values = c('blue' = 'blue',
+                                 'grey' = 'grey')) +
+  geom_text_repel(aes(label = ifelse(logpval > logpval_thres &
+                                       abs(estimate) > log2F_thres, 
+                                     gene, NA)
+                      )
+                  ) +
+  labs(
+    x = 'log2(FC)',
+    y = '-log10(FDR)',
+    title = 'clpX vs Control'
+  )
+
+
+
+stats %>% 
+  filter(group1 == 'clpX' & group2 == 'Control') %>% 
+  mutate(logpval = -log10(p.adj)) %>% 
+  mutate(col_point = ifelse(logpval > logpval_thres & abs(estimate) > log2F_thres, 
+                            'black', 'grey70')) %>%
+  mutate(gene_labs = ifelse(logpval > logpval_thres & abs(estimate) > log2F_thres, 
+                            gene, '')) %>% 
+  ggplot(aes(x = estimate, y = logpval)) +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed',
+             color = 'grey50', alpha = 0.8) +
+  geom_point(aes(color = col_point), show.legend = F) +
+  scale_color_manual(values = c('black', 'grey70'),
+                     breaks = c('black', 'grey70')) + 
+  geom_text_repel(aes(label = gene_labs)) +
+  labs(
+    x = 'log2(FC)',
+    y = '-log10(FDR)',
+    title = 'clpX vs Control'
+  ) +
+  theme(
+    plot.title = element_text(hjust=0.5)
+  )
 
 
 
 
+# heatmap -----------------------------------------------------------------
+
+library(ComplexHeatmap)
+
+# str detect is very useful, comes from stringr 
+prot %>% 
+  filter(str_detect(kegg, 'Citrate cycle'))  %>% 
+  select(-protein_names)
+
+# separates rows by their separator and multiply rows
+prot %>% 
+  separate_rows(kegg, sep = ';') %>% 
+  filter(kegg == 'Citrate cycle (TCA cycle)')
 
 
+tca_mat = prot %>% 
+  filter(str_detect(kegg, 'Citrate cycle'))  %>% 
+  select(-protein_names) %>% 
+  group_by(gene, sample) %>% 
+  summarise(int_mean = mean(intensity, na.rm = T)) %>% 
+  ungroup %>% 
+  pivot_wider(names_from = sample, values_from = int_mean) %>% 
+  column_to_rownames('gene') %>% as.matrix
 
+
+typeof(tca_mat)
+
+Heatmap(tca_mat)
+
+# wrong scaling!
+Heatmap(scale(tca_mat))
+
+scale(tca_mat)
+
+Heatmap(t(scale(t(tca_mat))))
+
+
+# tidyverse solution
+tca_matrix = prot %>% 
+  filter(str_detect(kegg, 'Citrate cycle'))  %>% 
+  select(-protein_names) %>% 
+  group_by(gene, sample) %>% 
+  summarise(int_mean = mean(intensity, na.rm = T)) %>% 
+  ungroup %>% 
+  group_by(gene) %>% 
+  mutate(z_score = scale(int_mean)[,1]) %>% 
+  select(-int_mean) %>% 
+  pivot_wider(names_from = sample, values_from = z_score) %>% 
+  column_to_rownames('gene') %>% as.matrix
+
+Heatmap(tca_matrix,
+        name = 'Z-score',
+        column_title = 'Samples',
+        row_title = 'Proteins',
+        row_km = 3, 
+        column_km = 2)
+
+# https://jokergoo.github.io/ComplexHeatmap-reference/book/a-single-heatmap.html
+
+dev.copy2pdf(device = cairo_pdf,
+             file = 'exploration/heatmap_session_5.pdf',
+             height = 10, width = 9, useDingbats = FALSE)
 
 
 
