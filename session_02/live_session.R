@@ -272,3 +272,60 @@ dev.copy2pdf(device = cairo_pdf,
 
 
 
+
+
+# enrichment analysis -----------------------------------------------------
+
+
+stats
+
+
+stats %>% 
+  filter(group1 == 'Control', group2 == 'DM') %>% 
+  filter(p.adj < 0.05, abs(estimate) > 1)
+
+
+prot_clean %>% 
+  filter(gene == 'ibpB') %>% 
+  ggplot(aes(x = sample, y = intensity, fill = sample)) +
+  geom_boxplot() +
+  geom_point()
+
+
+
+DM_sig_prots = stats %>% 
+  filter(group1 == 'Control', group2 == 'DM') %>% 
+  filter(p.adj < 0.05) %>% 
+  filter(abs(estimate) > 1)
+
+
+
+DM_sig_prots %>% 
+  filter(estimate > 0) %>% 
+  select(gene) %>% 
+  write_delim("data/DM_UP.txt")
+
+
+DM_UP = DM_sig_prots %>% 
+  filter(estimate > 0) %>% 
+  select(gene) %>% 
+  rename(genes = gene)
+
+DM_DOWN = DM_sig_prots %>% 
+  filter(estimate < 0) %>% 
+  select(gene) %>% 
+  rename(genes = gene)
+
+
+list_of_datasets = list(
+  'DM_UP' = DM_UP,
+  'DM_DOWN' = DM_DOWN
+)
+
+
+library(openxlsx)
+
+write.xlsx(file = 'data/DM_enrich.xlsx', list_of_datasets)
+
+
+

@@ -102,7 +102,7 @@ box_prot = function(genes){
     facet_wrap(~gene, scales = 'free_y')
 }
 
-box_prot(c('lon', 'sucA'))
+box_prot(c('lon'))
 
 
 
@@ -177,6 +177,35 @@ stats %>%
 
 
 
+# quick PCA ---------------------------------------------------------------
+
+prot_clean
+
+prot_pca.ready = prot_clean %>%
+  select(gene, sample, replicate, intensity) %>% 
+  pivot_wider(names_from = gene, values_from = intensity, values_fn = mean) %>% 
+  ungroup %>% 
+  select_if(~ !any(is.na(.)))
+
+pca_fit = prot_pca.ready %>% 
+  select(where(is.numeric)) %>%
+  prcomp(scale = TRUE) 
+
+
+pca_fit %>%
+  augment(prot_pca.ready) %>% # add original dataset back in
+  ggplot(aes(.fittedPC1, .fittedPC2, color = sample)) + 
+  geom_point(size = 1.5) +
+  scale_color_manual(
+    values = c(DM = "#D55E00", 
+               Control = "#0072B2",
+               clpX = "#D12499",
+               dnaK = "#109919")
+  ) +
+  stat_ellipse() +
+  theme_half_open(12) + background_grid()
+
+
 
 # heatmap -----------------------------------------------------------------
 
@@ -243,4 +272,64 @@ two_cat = prot %>%
   ungroup
 
 n_tca = two_cat %>% distinct(gene, .keep_all = T) %>% count(kegg)
+
+
+
+# enrichment analysis -----------------------------------------------------
+
+stats %>% 
+  filter(group1 == 'Control', group2 == 'DM') %>% 
+  filter(p.adj < 0.05, abs(estimate) > 1)
+
+prot %>% 
+  filter(gene == 'aidB') %>% 
+  filter(sample %in% c('Control', 'DM')) %>%
+  ggplot(aes(x = sample, y = intensity, fill = sample)) +
+  geom_boxplot() +
+  geom_point()
+
+
+
+stats %>% 
+  filter(group1 == 'Control', group2 == 'DM') %>% 
+  filter(p.adj < 0.05, abs(estimate) > 1) %>% 
+  filter(estimate < 0) %>%  # to pick up the negative values 
+  select(gene) %>% 
+  write_delim('down_genes_DM.txt')
+
+
+
+## creating datasets for my own code
+
+
+
+DM_DOWN = stats %>% 
+  filter(group1 == 'Control', group2 == 'DM') %>% 
+  filter(p.adj < 0.05, abs(estimate) > 1) %>% 
+  filter(estimate < 0) %>% 
+  rename(genes = gene) %>% 
+  select(genes)
+
+DM_UP = stats %>% 
+  filter(group1 == 'Control', group2 == 'DM') %>% 
+  filter(p.adj < 0.05, abs(estimate) > 1) %>% 
+  filter(estimate > 0) %>% 
+  rename(genes = gene) %>% 
+  select(genes)
+
+
+library(openxlsx)
+
+
+list_datasets = list(
+  "DM_DOWN" = DM_DOWN,
+  "DM_UP" = DM_UP
+)
+
+write.xlsx(file = 'data/DM_enrich.xlsx', list_datasets)
+
+
+
+
+
 
