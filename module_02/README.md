@@ -41,8 +41,9 @@ After identifying a list of significantly up- or down-regulated proteins, we wan
 
 ### Code
 
--   `stable_script.R`: The main R script for this module. It performs data loading, cleaning, statistical analysis, and generates all the plots.
--   `live_session.R`: An R script used for live coding during the session.
+-   `cleaned_session.R`: A consolidated and well-documented R script for the session. This script covers all the steps from data loading and cleaning to visualization and statistical analysis.
+-   `stable_script.R`: The main R script for this module. It performs data loading, cleaning, statistical analysis, and generates all the plots (archived).
+-   `live_session.R`: An R script used for live coding during the session (archived).
 -   `string_api_MULTI.py`: A Python script that interacts with the STRING database API to perform functional enrichment analysis. It takes lists of up- and down-regulated genes/proteins and returns enrichment results, network diagrams, and radar charts.
 
 ### Data

@@ -101,9 +101,10 @@ In the end you should be able to generate a plot similar to this:
 
 ### Code
 
--   `bacterial_AUCs.R`: R script to calculate the Area Under the Curve (AUC) for bacterial growth curves.
--   `session_02.R`: Main R script for the session, covering data loading, cleaning, and plotting.
--   `session_02_invivo.R`: R script for in-vivo data analysis.
+-   `cleaned_session.R`: A consolidated and well-documented R script for the session. This script covers all the steps from data loading and cleaning to visualization and statistical analysis.
+-   `bacterial_AUCs.R`: R script to calculate the Area Under the Curve (AUC) for bacterial growth curves (archived).
+-   `session_02.R`: Main R script for the session, covering data loading, cleaning, and plotting (archived).
+-   `session_02_invivo.R`: R script for in-vivo data analysis (archived).
 
 ### Data
 
